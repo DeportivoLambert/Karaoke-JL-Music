@@ -6,5 +6,13 @@
     "rol": "super_admin",
     "activo": true,
     "creado_en": "2026-09-05T12:00:00.000Z"
+  },
+  {
+    "cedula": "10621157",
+    "nombre": "Erick Lambert",
+    "password": "4455",
+    "rol": "dj",
+    "activo": true,
+    "creado_en": "2026-09-05T19:44:51.729Z"
   }
 ]

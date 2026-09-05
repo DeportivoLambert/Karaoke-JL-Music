@@ -485,6 +485,35 @@ class AppController {
     document.getElementById('qr-modal-backdrop')?.classList.remove('active');
   }
 
+  async copyMobileUrl() {
+    const mobileUrl = this.serverInfo?.mobileUrl || window.location.origin;
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(mobileUrl);
+      } else {
+        const textarea = document.createElement('textarea');
+        textarea.value = mobileUrl;
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+      }
+      this.showToast('¡Enlace copiado! 📋 Compártelo con los cantantes.', 'success');
+    } catch (err) {
+      this.showToast(`URL: ${mobileUrl}`, 'info');
+    }
+  }
+
+  shareViaWhatsApp() {
+    const mobileUrl = this.serverInfo?.mobileUrl || window.location.origin;
+    const message = `🎤 ¡Pide tus canciones para el Karaoke aquí!: ${mobileUrl}`;
+    const whatsappUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(message)}`;
+    window.open(whatsappUrl, '_blank');
+    this.showToast('Abriendo WhatsApp... 📱', 'info');
+  }
+
   openSettingsModal() {
     const urlInput = document.getElementById('settings-supabase-url');
     const keyInput = document.getElementById('settings-supabase-key');
