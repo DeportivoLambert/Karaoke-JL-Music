@@ -256,8 +256,30 @@
 
       <!-- DJ Sidebar -->
       <aside class="dj-panel-card">
-        <div class="dj-panel-title">
+        <div class="dj-panel-title" id="dj-panel-main-title">
           <span>🎧</span> Control DJ / Anfitrión
+        </div>
+
+        <!-- Staff Logged Out State Box -->
+        <div id="dj-logged-out-box" style="background:rgba(7,9,14,0.7); border:1px solid var(--border-glass); border-radius:var(--radius-md); padding:1rem; text-align:center; margin-bottom:1rem;">
+          <div style="font-size:1.5rem; margin-bottom:0.25rem;">🔒</div>
+          <div style="font-weight:700; color:#fff; font-size:0.95rem; margin-bottom:0.25rem;">Acceso Restringido Staff</div>
+          <p style="color:var(--text-muted); font-size:0.8rem; margin-bottom:0.75rem;">
+            Inicia sesión como Super Admin o DJ para moderar pedidos en vivo y controlar el escenario.
+          </p>
+          <button class="btn-neon-primary" style="width:100%; font-size:0.85rem; padding:0.5rem;" onclick="window.App.openLoginModal()">
+            🔑 Iniciar Sesión Staff
+          </button>
+        </div>
+
+        <!-- DJ / Super Admin Session Info Box -->
+        <div id="dj-session-info-box" style="display:none; background:rgba(13,18,29,0.9); border:1px solid var(--neon-cyan); border-radius:var(--radius-md); padding:0.85rem; margin-bottom:1rem;">
+          <div id="dj-session-user-role" style="font-size:0.95rem; font-weight:800; color:var(--neon-gold); display:flex; align-items:center; gap:0.4rem;">
+            👑 Super Admin: José Lambert
+          </div>
+          <div id="dj-session-user-desc" style="font-size:0.75rem; color:var(--neon-cyan); margin-top:0.25rem;">
+            Acceso total (Gestión de DJs + Catálogo + Moderación)
+          </div>
         </div>
 
         <div class="current-singer-highlight">
@@ -517,17 +539,17 @@
 
       <div class="modal-body">
         <p style="color:var(--text-muted); font-size:0.88rem; margin-bottom:1.25rem;">
-          Ingresa tus credenciales de Cédula y Contraseña autorizadas para acceder al panel de moderación y administración:
+          Ingresa con tu Cédula o Nombre de Usuario y Contraseña para acceder a tus funciones de Super Admin o DJ:
         </p>
 
         <div class="form-group">
-          <label class="form-label">Cédula de Identidad</label>
+          <label class="form-label">Cédula o Nombre de Usuario</label>
           <input 
             type="text" 
             id="login-cedula-input" 
             class="form-input" 
-            placeholder="Cédula de Identidad"
-            maxlength="20"
+            placeholder="Ej: 14621157 o Jose Lambert"
+            maxlength="50"
             autocomplete="username"
           />
         </div>

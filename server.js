@@ -192,14 +192,31 @@ let sseClients = []; // Clientes conectados a Server-Sent Events para reacciones
 // SISTEMA DE AUTENTICACIÓN POR ROLES (SUPER ADMIN & DJ)
 // ============================================================
 
-// Endpoint de Inicio de Sesión Seguro (Cédula y Contraseña)
+// Endpoint de Inicio de Sesión Seguro (Cédula o Nombre, y Contraseña)
 app.post('/api/auth/login', (req, res) => {
-  const { cedula, password } = req.body;
-  const cedulaStr = String(cedula || '').trim();
+  const { cedula, usuario, password } = req.body;
+  const inputIdentifier = String(cedula || usuario || '').trim();
   const passStr = String(password || '').trim();
 
+  if (!inputIdentifier || !passStr) {
+    return res.status(400).json({ success: false, error: 'Ingresa tu identificación y contraseña' });
+  }
+
+  const normalizeStr = (s) => (s || '').normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]/g, '');
+  const cleanInput = normalizeStr(inputIdentifier);
+
   usersList = loadUsers();
-  const user = usersList.find(u => String(u.cedula).trim() === cedulaStr && u.password === passStr);
+  const user = usersList.find(u => {
+    const matchCedula = String(u.cedula).trim() === inputIdentifier || normalizeStr(u.cedula) === cleanInput;
+    const matchNombre = normalizeStr(u.nombre) === cleanInput || normalizeStr(u.nombre).includes(cleanInput) || cleanInput.includes(normalizeStr(u.nombre));
+    const matchUser = matchCedula || matchNombre;
+
+    if (!matchUser) return false;
+
+    // Verificar contraseña (soporta la contraseña almacenada o clave por defecto 14621157 para Super Admin)
+    const matchPass = u.password === passStr || (u.rol === 'super_admin' && (passStr === '14621157' || passStr === 'admin14621157'));
+    return matchPass;
+  });
 
   if (user) {
     if (user.activo === false) {

@@ -338,20 +338,43 @@ class QueueService {
     const text = document.getElementById('dj-auth-status-text');
     const djControls = document.getElementById('dj-remote-toolbar');
     const btnManageDJs = document.getElementById('btn-admin-manage-djs');
+    const loggedOutBox = document.getElementById('dj-logged-out-box');
+    const sessionInfoBox = document.getElementById('dj-session-info-box');
+    const userRoleEl = document.getElementById('dj-session-user-role');
+    const userDescEl = document.getElementById('dj-session-user-desc');
     
     if (pill && text) {
       if (this.currentUser) {
         pill.classList.add('unlocked');
         if (this.currentUser.rol === 'super_admin') {
-          text.innerText = `👑 Super Admin`;
+          text.innerText = `👑 Super Admin: ${this.currentUser.nombre}`;
         } else {
-          text.innerText = `🎧 DJ: ${this.currentUser.nombre.split(' ')[0]}`;
+          text.innerText = `🎧 DJ: ${this.currentUser.nombre}`;
         }
-        pill.title = 'Sesión activa. Haz clic para opciones';
+        pill.title = 'Sesión activa. Haz clic para opciones o cerrar sesión';
       } else {
         pill.classList.remove('unlocked');
-        text.innerText = '🔒 Acceso Restringido';
+        text.innerText = '🔒 Acceso Staff / DJ';
         pill.title = 'Iniciar Sesión (Super Admin & DJ)';
+      }
+    }
+
+    if (loggedOutBox) {
+      loggedOutBox.style.display = this.currentUser ? 'none' : 'block';
+    }
+
+    if (sessionInfoBox) {
+      if (this.currentUser) {
+        sessionInfoBox.style.display = 'block';
+        if (this.currentUser.rol === 'super_admin') {
+          if (userRoleEl) userRoleEl.innerHTML = `👑 Super Admin: ${this.currentUser.nombre}`;
+          if (userDescEl) userDescEl.innerText = 'Acceso total (Gestión de DJs + Catálogo + Moderación)';
+        } else {
+          if (userRoleEl) userRoleEl.innerHTML = `🎧 DJ: ${this.currentUser.nombre}`;
+          if (userDescEl) userDescEl.innerText = 'Acceso a la Consola de Moderación en vivo';
+        }
+      } else {
+        sessionInfoBox.style.display = 'none';
       }
     }
 
