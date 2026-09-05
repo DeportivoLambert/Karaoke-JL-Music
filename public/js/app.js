@@ -514,6 +514,38 @@ class AppController {
     this.showToast('Abriendo WhatsApp... 📱', 'info');
   }
 
+  shareViaEmail() {
+    const mobileUrl = this.serverInfo?.mobileUrl || window.location.origin;
+    const subject = "🎤 ¡Pide tus canciones para el Karaoke en Vivo!";
+    const body = `¡Hola!\n\nEntra a este enlace desde tu celular para explorar el catálogo de más de 550 temas y pedir tus canciones en el Karaoke:\n${mobileUrl}\n\n¡Nos vemos en el escenario! 🎶`;
+    const mailtoUrl = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    window.location.href = mailtoUrl;
+    this.showToast('Abriendo cliente de correo... ✉️', 'info');
+  }
+
+  async shareViaBluetooth() {
+    const mobileUrl = this.serverInfo?.mobileUrl || window.location.origin;
+    const shareData = {
+      title: 'Karaoke Jl Music',
+      text: '🎤 ¡Pide tus canciones para el Karaoke en Vivo!',
+      url: mobileUrl
+    };
+
+    if (navigator.share) {
+      try {
+        await navigator.share(shareData);
+        this.showToast('¡Compartido vía Bluetooth / Sistema! 📶', 'success');
+      } catch (err) {
+        if (err.name !== 'AbortError') {
+          this.copyMobileUrl();
+        }
+      }
+    } else {
+      this.copyMobileUrl();
+      this.showToast('Enlace copiado para compartir por Bluetooth 📶', 'info');
+    }
+  }
+
   openSettingsModal() {
     const urlInput = document.getElementById('settings-supabase-url');
     const keyInput = document.getElementById('settings-supabase-key');

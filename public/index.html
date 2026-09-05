@@ -801,14 +801,25 @@
           </div>
         </div>
 
-        <!-- Botones de Acción Directa -->
-        <div class="qr-action-buttons-grid" style="display:grid; grid-template-columns:1fr 1fr; gap:0.75rem; margin-top:1.15rem;">
-          <button class="btn-neon-secondary" id="btn-copy-mobile-url" style="display:flex; align-items:center; justify-content:center; gap:0.5rem; padding:0.75rem 0.5rem; font-size:0.9rem; font-weight:700; width:100%;" onclick="window.App.copyMobileUrl()">
-            <span>📋</span> Copiar Enlace
-          </button>
-          
-          <button class="btn-neon-primary" id="btn-whatsapp-share" style="display:flex; align-items:center; justify-content:center; gap:0.5rem; padding:0.75rem 0.5rem; font-size:0.9rem; font-weight:700; width:100%; background:linear-gradient(135deg, #25D366, #128C7E); border-color:#25D366; box-shadow:0 0 15px rgba(37,211,102,0.4);" onclick="window.App.shareViaWhatsApp()">
+        <!-- Botones de Acción Directa: WhatsApp, Correo, Bluetooth, Copiar -->
+        <div style="font-size:0.75rem; font-weight:800; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px; margin-top:1.1rem; margin-bottom:0.4rem; text-align:left;">
+          📤 Compartir enlace por:
+        </div>
+        <div class="qr-action-buttons-grid" style="display:grid; grid-template-columns:1fr 1fr; gap:0.6rem;">
+          <button class="btn-neon-primary" id="btn-whatsapp-share" style="display:flex; align-items:center; justify-content:center; gap:0.45rem; padding:0.65rem 0.5rem; font-size:0.85rem; font-weight:700; width:100%; background:linear-gradient(135deg, #25D366, #128C7E); border-color:#25D366; box-shadow:0 0 12px rgba(37,211,102,0.35);" onclick="window.App.shareViaWhatsApp()">
             <span>📱</span> WhatsApp
+          </button>
+
+          <button class="btn-neon-primary" id="btn-email-share" style="display:flex; align-items:center; justify-content:center; gap:0.45rem; padding:0.65rem 0.5rem; font-size:0.85rem; font-weight:700; width:100%; background:linear-gradient(135deg, #EA4335, #B31412); border-color:#EA4335; box-shadow:0 0 12px rgba(234,67,53,0.35);" onclick="window.App.shareViaEmail()">
+            <span>✉️</span> Correo
+          </button>
+
+          <button class="btn-neon-primary" id="btn-bluetooth-share" style="display:flex; align-items:center; justify-content:center; gap:0.45rem; padding:0.65rem 0.5rem; font-size:0.85rem; font-weight:700; width:100%; background:linear-gradient(135deg, #0082FC, #0056B3); border-color:#0082FC; box-shadow:0 0 12px rgba(0,130,252,0.35);" onclick="window.App.shareViaBluetooth()">
+            <span>📶</span> Bluetooth / Móvil
+          </button>
+
+          <button class="btn-neon-secondary" id="btn-copy-mobile-url" style="display:flex; align-items:center; justify-content:center; gap:0.45rem; padding:0.65rem 0.5rem; font-size:0.85rem; font-weight:700; width:100%;" onclick="window.App.copyMobileUrl()">
+            <span>📋</span> Copiar Enlace
           </button>
         </div>
       </div>
