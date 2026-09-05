@@ -12,14 +12,42 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Obtener IPs locales de red para compartir el código QR móvil
-function getLocalIPAddress() {
+function getNetworkInterfacesList() {
   const interfaces = os.networkInterfaces();
+  const addresses = [];
+  
   for (const name of Object.keys(interfaces)) {
+    // Ignorar adaptadores virtuales comunes si hay opciones físicas
+    const lowerName = name.toLowerCase();
+    const isVirtual = lowerName.includes('vethernet') || lowerName.includes('wsl') || lowerName.includes('virtual') || lowerName.includes('vmware') || lowerName.includes('loopback');
+    
     for (const iface of interfaces[name]) {
       if (iface.family === 'IPv4' && !iface.internal) {
-        return iface.address;
+        addresses.push({
+          name,
+          address: iface.address,
+          isVirtual
+        });
       }
     }
+  }
+
+  // Ordenar priorizando interfaces físicas (no virtuales) y Wi-Fi / Ethernet
+  addresses.sort((a, b) => {
+    if (a.isVirtual !== b.isVirtual) return a.isVirtual ? 1 : -1;
+    const aWifi = a.name.toLowerCase().includes('wi-fi') || a.name.toLowerCase().includes('wireless');
+    const bWifi = b.name.toLowerCase().includes('wi-fi') || b.name.toLowerCase().includes('wireless');
+    if (aWifi !== bWifi) return aWifi ? -1 : 1;
+    return 0;
+  });
+
+  return addresses;
+}
+
+function getLocalIPAddress() {
+  const list = getNetworkInterfacesList();
+  if (list.length > 0) {
+    return list[0].address;
   }
   return 'localhost';
 }
@@ -27,10 +55,12 @@ function getLocalIPAddress() {
 // Ruta para obtener la IP del servidor y URL para móviles
 app.get('/api/server-info', (req, res) => {
   const localIp = getLocalIPAddress();
+  const allInterfaces = getNetworkInterfacesList();
   res.json({
     localIp,
     port: PORT,
-    mobileUrl: `http://${localIp}:${PORT}`
+    mobileUrl: `http://${localIp}:${PORT}`,
+    interfaces: allInterfaces.map(i => ({ name: i.name, url: `http://${i.address}:${PORT}` }))
   });
 });
 
@@ -42,7 +72,7 @@ app.get('/api/config', (req, res) => {
   });
 });
 
-// Ruta para obtener catálogo de canciones
+// Ruta para obtener catálogo de canciones (100% Offline)
 app.get('/api/canciones', (req, res) => {
   const jsonPath = path.join(__dirname, 'data', 'canciones.json');
   if (fs.existsSync(jsonPath)) {
@@ -53,8 +83,30 @@ app.get('/api/canciones', (req, res) => {
   }
 });
 
-// Almacén en memoria de cola para modo local (cuando no se use Supabase)
-let localQueue = [];
+// Almacén persistente de cola para modo local (cuando no se use Supabase)
+const queueFilePath = path.join(__dirname, 'data', 'local_queue.json');
+
+function loadLocalQueue() {
+  try {
+    if (fs.existsSync(queueFilePath)) {
+      const content = fs.readFileSync(queueFilePath, 'utf-8');
+      return JSON.parse(content);
+    }
+  } catch (err) {
+    console.warn('Advertencia al cargar local_queue.json:', err.message);
+  }
+  return [];
+}
+
+function saveLocalQueue(queue) {
+  try {
+    fs.writeFileSync(queueFilePath, JSON.stringify(queue, null, 2), 'utf-8');
+  } catch (err) {
+    console.error('Error al guardar local_queue.json:', err.message);
+  }
+}
+
+let localQueue = loadLocalQueue();
 let djPin = '1234'; // PIN predeterminado para el DJ / Anfitrión
 let sseClients = []; // Clientes conectados a Server-Sent Events para reacciones y control en tiempo real
 
@@ -108,6 +160,7 @@ app.post('/api/cola', (req, res) => {
   };
 
   localQueue.push(nuevoPedido);
+  saveLocalQueue(localQueue);
   broadcastSSE({ type: 'queue_update', data: localQueue });
   res.status(201).json(nuevoPedido);
 });
@@ -118,6 +171,7 @@ app.post('/api/cola/:id/approve', (req, res) => {
   const item = localQueue.find(q => q.id === id);
   if (item) {
     item.estado = 'pendiente';
+    saveLocalQueue(localQueue);
     broadcastSSE({ type: 'queue_update', data: localQueue });
     res.json({ success: true, item });
   } else {
@@ -131,6 +185,7 @@ app.post('/api/cola/:id/reject', (req, res) => {
   const item = localQueue.find(q => q.id === id);
   if (item) {
     item.estado = 'rechazado';
+    saveLocalQueue(localQueue);
     broadcastSSE({ type: 'queue_update', data: localQueue });
     res.json({ success: true, item });
   } else {
@@ -158,6 +213,7 @@ app.post('/api/cola/reorder', (req, res) => {
   // Agregar cualquier elemento restante
   map.forEach(item => reordered.push(item));
   localQueue = reordered;
+  saveLocalQueue(localQueue);
 
   broadcastSSE({ type: 'queue_update', data: localQueue });
   res.json({ success: true, queue: localQueue });
@@ -170,6 +226,7 @@ app.patch('/api/cola/:id', (req, res) => {
   const item = localQueue.find(q => q.id === id);
   if (item) {
     if (estado) item.estado = estado;
+    saveLocalQueue(localQueue);
     broadcastSSE({ type: 'queue_update', data: localQueue });
     res.json(item);
   } else {
@@ -181,6 +238,7 @@ app.patch('/api/cola/:id', (req, res) => {
 app.delete('/api/cola/:id', (req, res) => {
   const { id } = req.params;
   localQueue = localQueue.filter(q => q.id !== id);
+  saveLocalQueue(localQueue);
   broadcastSSE({ type: 'queue_update', data: localQueue });
   res.json({ success: true });
 });
@@ -305,13 +363,25 @@ app.get('/efectos/:filename', (req, res) => {
 // Iniciar servidor
 app.listen(PORT, '0.0.0.0', () => {
   const localIp = getLocalIPAddress();
+  const allInterfaces = getNetworkInterfacesList();
+
   console.log(`\n======================================================`);
-  console.log(`🎤  KARAOKE JL MUSIC - SISTEMA PROFESIONAL EN VIVO`);
+  console.log(`🎤  KARAOKE JL MUSIC - SISTEMA EN VIVO (100% OFFLINE READY)`);
   console.log(`======================================================`);
-  console.log(`🌐 Acceso Local:         http://localhost:${PORT}`);
-  console.log(`📱 Acceso Red / Móviles: http://${localIp}:${PORT}`);
-  console.log(`🎧 Modo DJ Moderador:   PIN por defecto: 1234`);
-  console.log(`⚡ Aplausómetro, SSE & Supabase Realtime Listos`);
+  console.log(`🖥️  Acceso DJ / Local:          http://localhost:${PORT}`);
+  console.log(`📡  Acceso Wi-Fi (Para Móviles): http://${localIp}:${PORT}`);
+  
+  if (allInterfaces.length > 1) {
+    console.log(`\n📶  Otras interfaces de red detectadas:`);
+    allInterfaces.slice(1).forEach(iface => {
+      console.log(`   • ${iface.name}: http://${iface.address}:${PORT}`);
+    });
+  }
+
+  console.log(`------------------------------------------------------`);
+  console.log(`🎧  Modo DJ Moderador PIN:      1234 (o configurado en app)`);
+  console.log(`💾  Cola Persistente Local:      data/local_queue.json (${localQueue.length} pedidos)`);
+  console.log(`⚡  Sincronización Tiempo Real:  SSE (Offline) & Supabase`);
   console.log(`======================================================\n`);
 });
 

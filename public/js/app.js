@@ -81,18 +81,22 @@ class AppController {
     const qrContainer = document.getElementById('qrcode-container');
     if (qrContainer) {
       qrContainer.innerHTML = '';
-      if (window.QRCode) {
-        new window.QRCode(qrContainer, {
-          text: mobileUrl,
-          width: 180,
-          height: 180,
-          colorDark: '#07090e',
-          colorLight: '#ffffff',
-          correctLevel: window.QRCode.CorrectLevel.M
-        });
+      if (typeof window.QRCode !== 'undefined') {
+        try {
+          new window.QRCode(qrContainer, {
+            text: mobileUrl,
+            width: 180,
+            height: 180,
+            colorDark: '#07090e',
+            colorLight: '#ffffff',
+            correctLevel: window.QRCode.CorrectLevel.M
+          });
+        } catch (e) {
+          console.warn('Error generando QR local:', e);
+          qrContainer.innerHTML = `<div style="padding:1.5rem; text-align:center; color:#00f0ff; font-weight:700; font-size:0.9rem;">Conéctate a:<br><span style="color:#fff; font-size:1.1rem;">${mobileUrl}</span></div>`;
+        }
       } else {
-        // Fallback imagen QR vía API pública
-        qrContainer.innerHTML = `<img src="https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(mobileUrl)}" alt="QR Code" style="width:180px;height:180px;display:block;" />`;
+        qrContainer.innerHTML = `<div style="padding:1.5rem; text-align:center; color:#00f0ff; font-weight:700; font-size:0.9rem;">Conéctate a:<br><span style="color:#fff; font-size:1.1rem;">${mobileUrl}</span></div>`;
       }
     }
   }
