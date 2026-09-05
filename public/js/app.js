@@ -485,8 +485,40 @@ class AppController {
     document.getElementById('qr-modal-backdrop')?.classList.remove('active');
   }
 
+  getFormattedMobileUrl() {
+    let url = this.serverInfo?.mobileUrl || window.location.origin;
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+      url = `http://${url}`;
+    }
+    return url;
+  }
+
+  async shareMobileUrl() {
+    const mobileUrl = this.getFormattedMobileUrl();
+    const shareData = {
+      title: 'Karaoke JL Music',
+      text: '🎤 ¡Pide tus canciones para el Karaoke aquí!',
+      url: mobileUrl
+    };
+
+    if (navigator.share) {
+      try {
+        await navigator.share(shareData);
+        this.showToast('¡Enlace compartido! 📲', 'success');
+        return;
+      } catch (err) {
+        if (err.name === 'AbortError') {
+          return;
+        }
+      }
+    }
+
+    // Fallback si no soporta Web Share API o falla
+    await this.copyMobileUrl();
+  }
+
   async copyMobileUrl() {
-    const mobileUrl = this.serverInfo?.mobileUrl || window.location.origin;
+    const mobileUrl = this.getFormattedMobileUrl();
     try {
       if (navigator.clipboard && navigator.clipboard.writeText) {
         await navigator.clipboard.writeText(mobileUrl);
@@ -500,49 +532,9 @@ class AppController {
         document.execCommand('copy');
         document.body.removeChild(textarea);
       }
-      this.showToast('¡Enlace copiado! 📋 Compártelo con los cantantes.', 'success');
+      this.showToast('¡Enlace copiado al portapapeles! 📋', 'success');
     } catch (err) {
       this.showToast(`URL: ${mobileUrl}`, 'info');
-    }
-  }
-
-  shareViaWhatsApp() {
-    const mobileUrl = this.serverInfo?.mobileUrl || window.location.origin;
-    const message = `🎤 ¡Pide tus canciones para el Karaoke aquí!: ${mobileUrl}`;
-    const whatsappUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(message)}`;
-    window.open(whatsappUrl, '_blank');
-    this.showToast('Abriendo WhatsApp... 📱', 'info');
-  }
-
-  shareViaEmail() {
-    const mobileUrl = this.serverInfo?.mobileUrl || window.location.origin;
-    const subject = "🎤 ¡Pide tus canciones para el Karaoke en Vivo!";
-    const body = `¡Hola!\n\nEntra a este enlace desde tu celular para explorar el catálogo de más de 550 temas y pedir tus canciones en el Karaoke:\n${mobileUrl}\n\n¡Nos vemos en el escenario! 🎶`;
-    const mailtoUrl = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-    window.location.href = mailtoUrl;
-    this.showToast('Abriendo cliente de correo... ✉️', 'info');
-  }
-
-  async shareViaBluetooth() {
-    const mobileUrl = this.serverInfo?.mobileUrl || window.location.origin;
-    const shareData = {
-      title: 'Karaoke Jl Music',
-      text: '🎤 ¡Pide tus canciones para el Karaoke en Vivo!',
-      url: mobileUrl
-    };
-
-    if (navigator.share) {
-      try {
-        await navigator.share(shareData);
-        this.showToast('¡Compartido vía Bluetooth / Sistema! 📶', 'success');
-      } catch (err) {
-        if (err.name !== 'AbortError') {
-          this.copyMobileUrl();
-        }
-      }
-    } else {
-      this.copyMobileUrl();
-      this.showToast('Enlace copiado para compartir por Bluetooth 📶', 'info');
     }
   }
 
