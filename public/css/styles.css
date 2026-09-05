@@ -2239,31 +2239,34 @@ body {
   /* Barra Flotante / Contenedor de Reacciones en Móviles */
   .floating-reactions-dock {
     position: fixed;
-    bottom: 12px;
-    left: 0;
-    right: 0;
-    margin: 0 auto;
-    transform: none;
+    bottom: 15px;
+    left: 50%;
+    right: auto;
+    transform: translateX(-50%);
+    width: 90%;
+    max-width: 380px;
+    z-index: 9999;
     display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
+    justify-content: space-around;
     align-items: center;
-    gap: 10px;
-    width: 100%;
-    max-width: 100%;
-    padding: 10px;
+    background: rgba(15, 23, 42, 0.95);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 30px;
+    padding: 8px 15px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+    margin: 0;
     box-sizing: border-box;
-    border-radius: var(--radius-lg);
-    border-left: none;
-    border-right: none;
+    animation: none;
   }
 
   .reaction-btn {
-    min-width: 45px;
-    width: 45px;
-    height: 45px;
-    font-size: 1.4rem;
-    padding: 8px;
+    min-width: 40px;
+    width: 40px;
+    height: 40px;
+    font-size: 1.35rem;
+    padding: 6px;
     border-radius: 50%;
     display: flex;
     align-items: center;
