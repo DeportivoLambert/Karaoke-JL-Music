@@ -83,8 +83,56 @@ app.get('/api/canciones', (req, res) => {
   }
 });
 
+// Ruta para registrar nueva canción al catálogo
+app.post('/api/canciones', (req, res) => {
+  const { numero, titulo, artista, genero, video_url } = req.body;
+  
+  if (!titulo || !artista) {
+    return res.status(400).json({ success: false, error: 'Título y Artista son obligatorios' });
+  }
+
+  const jsonPath = path.join(__dirname, 'data', 'canciones.json');
+  let songs = [];
+  if (fs.existsSync(jsonPath)) {
+    try {
+      songs = JSON.parse(fs.readFileSync(jsonPath, 'utf-8'));
+    } catch (e) {
+      songs = [];
+    }
+  }
+
+  // Generar número correlativo si no viene especificado
+  let numInt = parseInt(numero, 10);
+  if (isNaN(numInt)) {
+    numInt = songs.length > 0 ? Math.max(...songs.map(s => parseInt(s.numero || s.id, 10) || 0)) + 1 : 1;
+  }
+
+  const nuevaCancion = {
+    id: numInt,
+    numero: numInt,
+    titulo: String(titulo).trim(),
+    artista: String(artista).trim(),
+    genero: String(genero || 'Varios').trim(),
+    video_url: (video_url || '').trim()
+  };
+
+  // Actualizar o agregar
+  const index = songs.findIndex(s => s.id == numInt || s.numero == numInt);
+  if (index !== -1) {
+    songs[index] = nuevaCancion;
+  } else {
+    songs.push(nuevaCancion);
+  }
+
+  songs.sort((a, b) => (parseInt(a.numero || a.id, 10) || 0) - (parseInt(b.numero || b.id, 10) || 0));
+
+  fs.writeFileSync(jsonPath, JSON.stringify(songs, null, 2), 'utf-8');
+  res.status(201).json({ success: true, song: nuevaCancion, total: songs.length });
+});
+
 // Almacén persistente de cola para modo local (cuando no se use Supabase)
 const queueFilePath = path.join(__dirname, 'data', 'local_queue.json');
+const djConfigFilePath = path.join(__dirname, 'data', 'dj_config.json');
 
 function loadLocalQueue() {
   try {
@@ -106,14 +154,34 @@ function saveLocalQueue(queue) {
   }
 }
 
+function loadDJPin() {
+  try {
+    if (fs.existsSync(djConfigFilePath)) {
+      const config = JSON.parse(fs.readFileSync(djConfigFilePath, 'utf-8'));
+      if (config.pin) return String(config.pin);
+    }
+  } catch (err) {
+    console.warn('Advertencia al cargar dj_config.json:', err.message);
+  }
+  return '1234';
+}
+
+function saveDJPin(pin) {
+  try {
+    fs.writeFileSync(djConfigFilePath, JSON.stringify({ pin: String(pin), updated_at: new Date().toISOString() }, null, 2), 'utf-8');
+  } catch (err) {
+    console.error('Error al guardar dj_config.json:', err.message);
+  }
+}
+
 let localQueue = loadLocalQueue();
-let djPin = '1234'; // PIN predeterminado para el DJ / Anfitrión
+let djPin = loadDJPin(); // PIN persistente para el DJ / Anfitrión
 let sseClients = []; // Clientes conectados a Server-Sent Events para reacciones y control en tiempo real
 
 // Endpoint para verificar PIN de DJ
 app.post('/api/dj/auth', (req, res) => {
   const { pin } = req.body;
-  if (pin === djPin) {
+  if (String(pin).trim() === djPin) {
     res.json({ success: true, message: 'Autenticación DJ exitosa' });
   } else {
     res.status(401).json({ success: false, error: 'PIN incorrecto' });
@@ -123,11 +191,12 @@ app.post('/api/dj/auth', (req, res) => {
 // Endpoint para cambiar PIN de DJ (requiere PIN actual)
 app.post('/api/dj/change-pin', (req, res) => {
   const { currentPin, newPin } = req.body;
-  if (currentPin === djPin && newPin && newPin.length >= 4) {
-    djPin = newPin;
+  if (String(currentPin).trim() === djPin && newPin && String(newPin).trim().length >= 4) {
+    djPin = String(newPin).trim();
+    saveDJPin(djPin);
     res.json({ success: true, message: 'PIN de DJ actualizado correctamente' });
   } else {
-    res.status(400).json({ success: false, error: 'PIN actual incorrecto o nuevo PIN inválido' });
+    res.status(400).json({ success: false, error: 'PIN actual incorrecto o nuevo PIN inválido (mínimo 4 dígitos)' });
   }
 });
 

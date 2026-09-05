@@ -362,7 +362,7 @@ class QueueService {
     }
 
     if (djControls) {
-      djControls.style.display = this.isDJUnlocked ? 'block' : 'none';
+      djControls.style.display = this.isDJUnlocked ? 'flex' : 'none';
     }
   }
 

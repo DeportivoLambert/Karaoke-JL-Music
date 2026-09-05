@@ -267,19 +267,31 @@
         </div>
 
         <!-- DJ Remote Control Toolbar -->
-        <div id="dj-remote-toolbar" style="display:none; background:rgba(7,9,14,0.6); padding:0.85rem; border-radius:var(--radius-md); border:1px solid var(--border-glass); margin-bottom:1rem;">
-          <div style="font-size:0.75rem; font-weight:800; color:var(--neon-gold); text-transform:uppercase; margin-bottom:0.6rem;">
+        <div id="dj-remote-toolbar" style="display:none; background:rgba(7,9,14,0.7); padding:0.85rem; border-radius:var(--radius-md); border:1px solid var(--border-glass); margin-bottom:1rem; flex-direction:column; gap:0.6rem;">
+          <div style="font-size:0.75rem; font-weight:800; color:var(--neon-gold); text-transform:uppercase;">
             ⚡ Control Remoto de Escenario:
           </div>
-          <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.4rem; margin-bottom:0.6rem;">
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.4rem;">
             <button class="btn-glass" style="font-size:0.8rem; padding:0.45rem;" onclick="window.SupabaseService.sendStageControl('play')">▶ Reanudar</button>
             <button class="btn-glass" style="font-size:0.8rem; padding:0.45rem;" onclick="window.SupabaseService.sendStageControl('pause')">⏸ Pausar</button>
-            <button class="btn-glass" style="font-size:0.8rem; padding:0.45rem;" onclick="window.SupabaseService.sendStageControl('skip')">⏭ Siguiente</button>
+            <button class="btn-glass" style="font-size:0.8rem; padding:0.45rem;" onclick="window.SupabaseService.sendStageControl('skip')">⏭ Saltar / Fin</button>
             <button class="btn-glass" style="font-size:0.8rem; padding:0.45rem;" onclick="window.SupabaseService.sendStageControl('mute')">🔇 Silenciar</button>
           </div>
           <button class="btn-neon-primary" style="width:100%; font-size:0.8rem; padding:0.5rem;" onclick="window.SupabaseService.sendReaction('👏', 'DJ')">
             👏 Enviar Aplausos al Escenario
           </button>
+          
+          <div style="border-top:1px solid var(--border-glass); padding-top:0.6rem; display:flex; flex-direction:column; gap:0.4rem;">
+            <div style="font-size:0.72rem; font-weight:800; color:var(--neon-cyan); text-transform:uppercase;">
+              🛠️ Administración DJ:
+            </div>
+            <button class="btn-neon-secondary" style="width:100%; font-size:0.8rem; padding:0.45rem;" onclick="window.App.openAddSongModal()">
+              ➕ Agregar Canción al Catálogo
+            </button>
+            <button class="btn-glass" style="width:100%; font-size:0.8rem; padding:0.45rem;" onclick="window.App.openChangePINModal()">
+              🔑 Cambiar Clave / PIN DJ
+            </button>
+          </div>
         </div>
 
         <button class="btn-neon-secondary" style="width:100%;" onclick="window.App.switchView('stage')">
@@ -516,6 +528,143 @@
         <button class="btn-glass" onclick="window.App.closeDJModal()">Cancelar</button>
         <button class="btn-neon-primary" onclick="window.App.submitDJPin()">
           Desbloquear DJ 🔓
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       MODAL: CAMBIAR PIN DE DJ
+       ============================================================ -->
+  <div class="modal-backdrop" id="dj-change-pin-modal-backdrop">
+    <div class="modal-dialog" style="max-width:400px;">
+      <div class="modal-header">
+        <div class="modal-title">
+          <span>🔑</span> Cambiar Clave / PIN de DJ
+        </div>
+        <button class="modal-close-btn" onclick="window.App.closeChangePINModal()">✕</button>
+      </div>
+
+      <div class="modal-body">
+        <p style="color:var(--text-muted); font-size:0.85rem; margin-bottom:1rem;">
+          Actualiza tu clave de acceso de DJ. El nuevo PIN debe tener al menos 4 caracteres:
+        </p>
+
+        <div class="form-group">
+          <label class="form-label">PIN Actual</label>
+          <input 
+            type="password" 
+            id="dj-current-pin-input" 
+            class="form-input" 
+            placeholder="PIN Actual (ej: 1234)"
+            maxlength="10"
+          />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Nuevo PIN</label>
+          <input 
+            type="password" 
+            id="dj-new-pin-input" 
+            class="form-input" 
+            placeholder="Nuevo PIN (ej: 5678)"
+            maxlength="10"
+            onkeydown="if(event.key==='Enter') window.App.submitChangeDJPin()"
+          />
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn-glass" onclick="window.App.closeChangePINModal()">Cancelar</button>
+        <button class="btn-neon-primary" onclick="window.App.submitChangeDJPin()">
+          Guardar Nuevo PIN 💾
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       MODAL: AGREGAR CANCIÓN AL CATÁLOGO
+       ============================================================ -->
+  <div class="modal-backdrop" id="add-song-modal-backdrop">
+    <div class="modal-dialog" style="max-width:480px;">
+      <div class="modal-header">
+        <div class="modal-title">
+          <span>➕</span> Agregar Nueva Canción
+        </div>
+        <button class="modal-close-btn" onclick="window.App.closeAddSongModal()">✕</button>
+      </div>
+
+      <div class="modal-body">
+        <p style="color:var(--text-muted); font-size:0.85rem; margin-bottom:1rem;">
+          Registra una nueva canción para que los cantantes puedan pedirla inmediatamente:
+        </p>
+
+        <div class="form-group">
+          <label class="form-label">Título de la Canción *</label>
+          <input 
+            type="text" 
+            id="new-song-title" 
+            class="form-input" 
+            placeholder="Ej: Vivir Mi Vida"
+            required
+          />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Artista / Intérprete *</label>
+          <input 
+            type="text" 
+            id="new-song-artist" 
+            class="form-input" 
+            placeholder="Ej: Marc Anthony"
+            required
+          />
+        </div>
+
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.75rem;">
+          <div class="form-group">
+            <label class="form-label">Número / Código</label>
+            <input 
+              type="number" 
+              id="new-song-number" 
+              class="form-input" 
+              placeholder="Auto o ej: 558"
+            />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Género Musical</label>
+            <select id="new-song-genre" class="form-input" style="background:#0d121d; color:#fff;">
+              <option value="Salsa">Salsa</option>
+              <option value="Merengue">Merengue</option>
+              <option value="Bachata">Bachata</option>
+              <option value="Baladas">Baladas</option>
+              <option value="Reggaeton">Reggaeton</option>
+              <option value="Rock">Rock</option>
+              <option value="Pop">Pop</option>
+              <option value="Cumbia">Cumbia</option>
+              <option value="Rancheras">Rancheras</option>
+              <option value="Varios" selected>Varios</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Archivo de Video / URL (Opcional)</label>
+          <input 
+            type="text" 
+            id="new-song-video" 
+            class="form-input" 
+            placeholder="Ej: Marc Anthony - Vivir Mi Vida.mp4"
+          />
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn-glass" onclick="window.App.closeAddSongModal()">Cancelar</button>
+        <button class="btn-neon-primary" onclick="window.App.submitAddSong()">
+          Guardar Canción 🎵
         </button>
       </div>
     </div>

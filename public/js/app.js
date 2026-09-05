@@ -174,6 +174,122 @@ class AppController {
   }
 
   // ============================================================
+  // CAMBIAR PIN DE DJ
+  // ============================================================
+  openChangePINModal() {
+    const cur = document.getElementById('dj-current-pin-input');
+    const neu = document.getElementById('dj-new-pin-input');
+    if (cur) cur.value = '';
+    if (neu) neu.value = '';
+    document.getElementById('dj-change-pin-modal-backdrop')?.classList.add('active');
+    setTimeout(() => cur?.focus(), 150);
+  }
+
+  closeChangePINModal() {
+    document.getElementById('dj-change-pin-modal-backdrop')?.classList.remove('active');
+  }
+
+  async submitChangeDJPin() {
+    const curInput = document.getElementById('dj-current-pin-input');
+    const neuInput = document.getElementById('dj-new-pin-input');
+
+    const currentPin = curInput ? curInput.value.trim() : '';
+    const newPin = neuInput ? neuInput.value.trim() : '';
+
+    if (!currentPin || !newPin) {
+      this.showToast('Por favor completa ambos campos de PIN', 'error');
+      return;
+    }
+
+    if (newPin.length < 4) {
+      this.showToast('El nuevo PIN debe tener al menos 4 caracteres', 'error');
+      neuInput?.focus();
+      return;
+    }
+
+    try {
+      const res = await fetch('/api/dj/change-pin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ currentPin, newPin })
+      });
+      const data = await res.json();
+      if (data.success) {
+        this.closeChangePINModal();
+        this.showToast('¡PIN de DJ actualizado exitosamente! 🔑', 'success');
+      } else {
+        this.showToast(data.error || 'PIN actual incorrecto', 'error');
+      }
+    } catch (err) {
+      this.showToast('Error al conectar con el servidor', 'error');
+    }
+  }
+
+  // ============================================================
+  // AGREGAR CANCIÓN AL CATÁLOGO
+  // ============================================================
+  openAddSongModal() {
+    const title = document.getElementById('new-song-title');
+    const artist = document.getElementById('new-song-artist');
+    const number = document.getElementById('new-song-number');
+    const video = document.getElementById('new-song-video');
+    
+    if (title) title.value = '';
+    if (artist) artist.value = '';
+    if (number) number.value = '';
+    if (video) video.value = '';
+
+    document.getElementById('add-song-modal-backdrop')?.classList.add('active');
+    setTimeout(() => title?.focus(), 150);
+  }
+
+  closeAddSongModal() {
+    document.getElementById('add-song-modal-backdrop')?.classList.remove('active');
+  }
+
+  async submitAddSong() {
+    const titleInput = document.getElementById('new-song-title');
+    const artistInput = document.getElementById('new-song-artist');
+    const numberInput = document.getElementById('new-song-number');
+    const genreInput = document.getElementById('new-song-genre');
+    const videoInput = document.getElementById('new-song-video');
+
+    const titulo = titleInput ? titleInput.value.trim() : '';
+    const artista = artistInput ? artistInput.value.trim() : '';
+    const numero = numberInput ? numberInput.value.trim() : '';
+    const genero = genreInput ? genreInput.value : 'Varios';
+    const video_url = videoInput ? videoInput.value.trim() : '';
+
+    if (!titulo || !artista) {
+      this.showToast('Título y Artista son obligatorios', 'error');
+      titleInput?.focus();
+      return;
+    }
+
+    try {
+      const res = await fetch('/api/canciones', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ numero, titulo, artista, genero, video_url })
+      });
+      const data = await res.json();
+      if (data.success) {
+        this.closeAddSongModal();
+        this.showToast(`¡Canción #${data.song.numero} "${data.song.titulo}" agregada! 🎵`, 'success');
+        
+        // Recargar catálogo en pantalla
+        if (window.CatalogService) {
+          await window.CatalogService.loadCatalog();
+        }
+      } else {
+        this.showToast(data.error || 'Error al guardar la canción', 'error');
+      }
+    } catch (err) {
+      this.showToast('Error al conectar con el servidor', 'error');
+    }
+  }
+
+  // ============================================================
   // REACCIONES EN VIVO (APLAUSÓMETRO)
   // ============================================================
   sendReaction(emoji) {
