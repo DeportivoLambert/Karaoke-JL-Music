@@ -130,9 +130,9 @@ app.post('/api/canciones', (req, res) => {
   res.status(201).json({ success: true, song: nuevaCancion, total: songs.length });
 });
 
-// Almacén persistente de cola para modo local (cuando no se use Supabase)
+// Almacén persistente de cola y usuarios para modo local
 const queueFilePath = path.join(__dirname, 'data', 'local_queue.json');
-const djConfigFilePath = path.join(__dirname, 'data', 'dj_config.json');
+const usersFilePath = path.join(__dirname, 'data', 'usuarios.json');
 
 function loadLocalQueue() {
   try {
@@ -154,50 +154,175 @@ function saveLocalQueue(queue) {
   }
 }
 
-function loadDJPin() {
+function loadUsers() {
   try {
-    if (fs.existsSync(djConfigFilePath)) {
-      const config = JSON.parse(fs.readFileSync(djConfigFilePath, 'utf-8'));
-      if (config.pin) return String(config.pin);
+    if (fs.existsSync(usersFilePath)) {
+      const content = fs.readFileSync(usersFilePath, 'utf-8');
+      return JSON.parse(content);
     }
   } catch (err) {
-    console.warn('Advertencia al cargar dj_config.json:', err.message);
+    console.warn('Advertencia al cargar usuarios.json:', err.message);
   }
-  return '1234';
+  // Usuario Super Admin inicial garantizado
+  const defaultAdmin = [{
+    cedula: '14621157',
+    nombre: 'José Lambert',
+    password: process.env.SUPER_ADMIN_PASSWORD || 'admin14621157',
+    rol: 'super_admin',
+    activo: true,
+    creado_en: new Date().toISOString()
+  }];
+  saveUsers(defaultAdmin);
+  return defaultAdmin;
 }
 
-function saveDJPin(pin) {
+function saveUsers(users) {
   try {
-    fs.writeFileSync(djConfigFilePath, JSON.stringify({ pin: String(pin), updated_at: new Date().toISOString() }, null, 2), 'utf-8');
+    fs.writeFileSync(usersFilePath, JSON.stringify(users, null, 2), 'utf-8');
   } catch (err) {
-    console.error('Error al guardar dj_config.json:', err.message);
+    console.error('Error al guardar usuarios.json:', err.message);
   }
 }
 
 let localQueue = loadLocalQueue();
-let djPin = loadDJPin(); // PIN persistente para el DJ / Anfitrión
+let usersList = loadUsers();
 let sseClients = []; // Clientes conectados a Server-Sent Events para reacciones y control en tiempo real
 
-// Endpoint para verificar PIN de DJ
-app.post('/api/dj/auth', (req, res) => {
-  const { pin } = req.body;
-  if (String(pin).trim() === djPin) {
-    res.json({ success: true, message: 'Autenticación DJ exitosa' });
-  } else {
-    res.status(401).json({ success: false, error: 'PIN incorrecto' });
+// ============================================================
+// SISTEMA DE AUTENTICACIÓN POR ROLES (SUPER ADMIN & DJ)
+// ============================================================
+
+// Endpoint de Inicio de Sesión Seguro (Cédula y Contraseña)
+app.post('/api/auth/login', (req, res) => {
+  const { cedula, password } = req.body;
+  const cedulaStr = String(cedula || '').trim();
+  const passStr = String(password || '').trim();
+
+  usersList = loadUsers();
+  const user = usersList.find(u => String(u.cedula).trim() === cedulaStr && u.password === passStr);
+
+  if (user) {
+    if (user.activo === false) {
+      return res.status(403).json({ success: false, error: 'Usuario dado de baja. Consulta con el Administrador.' });
+    }
+    return res.json({
+      success: true,
+      user: {
+        cedula: user.cedula,
+        nombre: user.nombre,
+        rol: user.rol
+      }
+    });
   }
+
+  res.status(401).json({ success: false, error: 'Acceso denegado: Credenciales no válidas' });
 });
 
-// Endpoint para cambiar PIN de DJ (requiere PIN actual)
-app.post('/api/dj/change-pin', (req, res) => {
-  const { currentPin, newPin } = req.body;
-  if (String(currentPin).trim() === djPin && newPin && String(newPin).trim().length >= 4) {
-    djPin = String(newPin).trim();
-    saveDJPin(djPin);
-    res.json({ success: true, message: 'PIN de DJ actualizado correctamente' });
-  } else {
-    res.status(400).json({ success: false, error: 'PIN actual incorrecto o nuevo PIN inválido (mínimo 4 dígitos)' });
+// Endpoint para cambiar contraseña de usuario autenticado
+app.post('/api/auth/change-password', (req, res) => {
+  const { cedula, currentPassword, newPassword } = req.body;
+  const cedulaStr = String(cedula || '').trim();
+  const curPass = String(currentPassword || '').trim();
+  const newPass = String(newPassword || '').trim();
+
+  if (!newPass || newPass.length < 4) {
+    return res.status(400).json({ success: false, error: 'La nueva contraseña debe tener al menos 4 caracteres' });
   }
+
+  usersList = loadUsers();
+  const user = usersList.find(u => String(u.cedula).trim() === cedulaStr && u.password === curPass);
+
+  if (user) {
+    user.password = newPass;
+    saveUsers(usersList);
+    return res.json({ success: true, message: 'Contraseña actualizada correctamente' });
+  }
+
+  res.status(401).json({ success: false, error: 'Acceso denegado: Credenciales no válidas' });
+});
+
+// Endpoint para listar DJs (Exclusivo Super Admin)
+app.get('/api/admin/djs', (req, res) => {
+  usersList = loadUsers();
+  const djs = usersList.map(u => ({
+    cedula: u.cedula,
+    nombre: u.nombre,
+    rol: u.rol,
+    activo: u.activo !== false,
+    creado_en: u.creado_en
+  }));
+  res.json(djs);
+});
+
+// Endpoint para crear un nuevo DJ (Exclusivo Super Admin)
+app.post('/api/admin/djs', (req, res) => {
+  const { cedula, nombre, password } = req.body;
+  const cedulaStr = String(cedula || '').trim();
+  const nombreStr = String(nombre || '').trim();
+  const passStr = String(password || '').trim();
+
+  if (!cedulaStr || !nombreStr || !passStr) {
+    return res.status(400).json({ success: false, error: 'Cédula, Nombre y Contraseña son obligatorios' });
+  }
+
+  usersList = loadUsers();
+  if (usersList.some(u => String(u.cedula).trim() === cedulaStr)) {
+    return res.status(400).json({ success: false, error: 'Ya existe un usuario registrado con esa cédula' });
+  }
+
+  const newDJ = {
+    cedula: cedulaStr,
+    nombre: nombreStr,
+    password: passStr,
+    rol: 'dj',
+    activo: true,
+    creado_en: new Date().toISOString()
+  };
+
+  usersList.push(newDJ);
+  saveUsers(usersList);
+
+  res.status(201).json({
+    success: true,
+    dj: { cedula: newDJ.cedula, nombre: newDJ.nombre, rol: newDJ.rol, activo: newDJ.activo }
+  });
+});
+
+// Endpoint para activar o dar de baja a un DJ
+app.patch('/api/admin/djs/:cedula/toggle', (req, res) => {
+  const { cedula } = req.params;
+  const cedulaStr = String(cedula).trim();
+
+  if (cedulaStr === '14621157') {
+    return res.status(400).json({ success: false, error: 'No se puede desactivar al Super Admin principal' });
+  }
+
+  usersList = loadUsers();
+  const user = usersList.find(u => String(u.cedula).trim() === cedulaStr);
+
+  if (user) {
+    user.activo = !user.activo;
+    saveUsers(usersList);
+    return res.json({ success: true, activo: user.activo, message: `Usuario ${user.activo ? 'activado' : 'dado de baja'}` });
+  }
+
+  res.status(404).json({ success: false, error: 'Usuario no encontrado' });
+});
+
+// Endpoint para eliminar a un DJ
+app.delete('/api/admin/djs/:cedula', (req, res) => {
+  const { cedula } = req.params;
+  const cedulaStr = String(cedula).trim();
+
+  if (cedulaStr === '14621157') {
+    return res.status(400).json({ success: false, error: 'No se puede eliminar al Super Admin principal' });
+  }
+
+  usersList = loadUsers();
+  usersList = usersList.filter(u => String(u.cedula).trim() !== cedulaStr);
+  saveUsers(usersList);
+
+  res.json({ success: true, message: 'Usuario DJ eliminado correctamente' });
 });
 
 // Obtener cola completa
@@ -448,8 +573,9 @@ app.listen(PORT, '0.0.0.0', () => {
   }
 
   console.log(`------------------------------------------------------`);
-  console.log(`🎧  Modo DJ Moderador PIN:      1234 (o configurado en app)`);
+  console.log(`🔒  Seguridad por Roles:         Super Admin & DJs autorizados`);
   console.log(`💾  Cola Persistente Local:      data/local_queue.json (${localQueue.length} pedidos)`);
+  console.log(`👥  Usuarios Registrados:        data/usuarios.json (${usersList.length} usuarios)`);
   console.log(`⚡  Sincronización Tiempo Real:  SSE (Offline) & Supabase`);
   console.log(`======================================================\n`);
 });

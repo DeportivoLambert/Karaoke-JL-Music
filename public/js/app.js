@@ -123,105 +123,280 @@ class AppController {
   }
 
   // ============================================================
-  // GESTIÓN DE PIN Y MODO DJ
+  // GESTIÓN DE AUTENTICACIÓN POR ROLES (SUPER ADMIN & DJ)
   // ============================================================
   handleDJPillClick() {
-    if (window.QueueService && window.QueueService.isDJUnlocked) {
-      if (confirm('¿Deseas bloquear el modo DJ y volver a modo visitante?')) {
-        window.QueueService.lockDJ();
+    if (window.QueueService && window.QueueService.currentUser) {
+      const user = window.QueueService.currentUser;
+      const rolName = user.rol === 'super_admin' ? 'Super Admin' : 'DJ';
+      if (confirm(`Sesión activa: ${user.nombre} (${rolName})\n\n¿Deseas cerrar sesión?`)) {
+        this.logout();
       }
     } else {
-      this.openDJModal();
+      this.openLoginModal();
     }
   }
 
-  openDJModal() {
-    const input = document.getElementById('dj-pin-input');
-    if (input) {
-      input.value = '';
-      setTimeout(() => input.focus(), 150);
-    }
-    document.getElementById('dj-pin-modal-backdrop')?.classList.add('active');
+  openLoginModal() {
+    const cedulaInput = document.getElementById('login-cedula-input');
+    const passInput = document.getElementById('login-password-input');
+    if (cedulaInput) cedulaInput.value = '';
+    if (passInput) passInput.value = '';
+    document.getElementById('staff-login-modal-backdrop')?.classList.add('active');
+    setTimeout(() => cedulaInput?.focus(), 150);
   }
 
-  closeDJModal() {
-    document.getElementById('dj-pin-modal-backdrop')?.classList.remove('active');
+  closeLoginModal() {
+    document.getElementById('staff-login-modal-backdrop')?.classList.remove('active');
   }
 
-  async submitDJPin() {
-    const input = document.getElementById('dj-pin-input');
-    const pin = input ? input.value.trim() : '';
+  async submitLogin() {
+    const cedulaInput = document.getElementById('login-cedula-input');
+    const passInput = document.getElementById('login-password-input');
 
-    if (!pin) {
-      this.showToast('Por favor escribe el PIN de DJ', 'error');
-      input?.focus();
+    const cedula = cedulaInput ? cedulaInput.value.trim() : '';
+    const password = passInput ? passInput.value.trim() : '';
+
+    if (!cedula || !password) {
+      this.showToast('Ingresa tu Cédula y Contraseña', 'error');
       return;
     }
 
-    if (window.QueueService) {
-      const success = await window.QueueService.verifyDJPin(pin);
-      if (success) {
-        this.closeDJModal();
-        this.showToast('¡Modo DJ Desbloqueado! Tienes control total 🎧', 'success');
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cedula, password })
+      });
+      const data = await res.json();
+
+      if (res.ok && data.success && data.user) {
+        this.closeLoginModal();
+        window.QueueService?.setAuthUser(data.user);
+        
+        if (data.user.rol === 'super_admin') {
+          this.showToast(`¡Bienvenido Super Admin ${data.user.nombre}! 👑 Control Total`, 'success');
+        } else {
+          this.showToast(`¡Bienvenido DJ ${data.user.nombre}! 🎧 Control de Moderación Activo`, 'success');
+        }
       } else {
-        this.showToast('PIN de DJ incorrecto. Intenta con 1234', 'error');
-        if (input) {
-          input.value = '';
-          input.focus();
+        this.showToast(data.error || 'Acceso denegado: Credenciales no válidas', 'error');
+        if (passInput) {
+          passInput.value = '';
+          passInput.focus();
         }
       }
+    } catch (err) {
+      this.showToast('Acceso denegado: Credenciales no válidas', 'error');
     }
   }
 
+  logout() {
+    window.QueueService?.logout();
+    this.showToast('Has cerrado sesión correctamente 🔒', 'info');
+  }
+
   // ============================================================
-  // CAMBIAR PIN DE DJ
+  // CAMBIAR CONTRASEÑA DE USUARIO AUTENTICADO
   // ============================================================
-  openChangePINModal() {
-    const cur = document.getElementById('dj-current-pin-input');
-    const neu = document.getElementById('dj-new-pin-input');
+  openChangePasswordModal() {
+    const cur = document.getElementById('change-current-pass-input');
+    const neu = document.getElementById('change-new-pass-input');
     if (cur) cur.value = '';
     if (neu) neu.value = '';
-    document.getElementById('dj-change-pin-modal-backdrop')?.classList.add('active');
+    document.getElementById('change-password-modal-backdrop')?.classList.add('active');
     setTimeout(() => cur?.focus(), 150);
   }
 
-  closeChangePINModal() {
-    document.getElementById('dj-change-pin-modal-backdrop')?.classList.remove('active');
+  closeChangePasswordModal() {
+    document.getElementById('change-password-modal-backdrop')?.classList.remove('active');
   }
 
-  async submitChangeDJPin() {
-    const curInput = document.getElementById('dj-current-pin-input');
-    const neuInput = document.getElementById('dj-new-pin-input');
+  async submitChangePassword() {
+    const curInput = document.getElementById('change-current-pass-input');
+    const neuInput = document.getElementById('change-new-pass-input');
 
-    const currentPin = curInput ? curInput.value.trim() : '';
-    const newPin = neuInput ? neuInput.value.trim() : '';
+    const currentPassword = curInput ? curInput.value.trim() : '';
+    const newPassword = neuInput ? neuInput.value.trim() : '';
+    const currentUser = window.QueueService?.currentUser;
 
-    if (!currentPin || !newPin) {
-      this.showToast('Por favor completa ambos campos de PIN', 'error');
+    if (!currentUser) {
+      this.showToast('Debes iniciar sesión primero', 'error');
       return;
     }
 
-    if (newPin.length < 4) {
-      this.showToast('El nuevo PIN debe tener al menos 4 caracteres', 'error');
+    if (!currentPassword || !newPassword) {
+      this.showToast('Por favor completa ambos campos', 'error');
+      return;
+    }
+
+    if (newPassword.length < 4) {
+      this.showToast('La nueva contraseña debe tener al menos 4 caracteres', 'error');
       neuInput?.focus();
       return;
     }
 
     try {
-      const res = await fetch('/api/dj/change-pin', {
+      const res = await fetch('/api/auth/change-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ currentPin, newPin })
+        body: JSON.stringify({
+          cedula: currentUser.cedula,
+          currentPassword,
+          newPassword
+        })
       });
       const data = await res.json();
       if (data.success) {
-        this.closeChangePINModal();
-        this.showToast('¡PIN de DJ actualizado exitosamente! 🔑', 'success');
+        this.closeChangePasswordModal();
+        this.showToast('¡Contraseña actualizada exitosamente! 🔑', 'success');
       } else {
-        this.showToast(data.error || 'PIN actual incorrecto', 'error');
+        this.showToast(data.error || 'Acceso denegado: Credenciales no válidas', 'error');
       }
     } catch (err) {
       this.showToast('Error al conectar con el servidor', 'error');
+    }
+  }
+
+  // ============================================================
+  // PANEL SUPER ADMIN: GESTIÓN DE DJS
+  // ============================================================
+  async openManageDJsModal() {
+    const currentUser = window.QueueService?.currentUser;
+    if (!currentUser || currentUser.rol !== 'super_admin') {
+      this.showToast('Acceso restringido: Exclusivo para Super Admin 👑', 'error');
+      return;
+    }
+
+    document.getElementById('manage-djs-modal-backdrop')?.classList.add('active');
+    await this.loadDJsList();
+  }
+
+  closeManageDJsModal() {
+    document.getElementById('manage-djs-modal-backdrop')?.classList.remove('active');
+  }
+
+  async loadDJsList() {
+    const container = document.getElementById('djs-list-container');
+    if (!container) return;
+
+    container.innerHTML = '<div style="color:var(--text-muted); font-size:0.85rem; padding:0.5rem;">Cargando lista de DJs...</div>';
+
+    try {
+      const res = await fetch('/api/admin/djs');
+      const users = await res.json();
+
+      if (!Array.isArray(users) || users.length === 0) {
+        container.innerHTML = '<div style="color:var(--text-muted); font-size:0.85rem; padding:0.5rem;">No hay DJs registrados aún.</div>';
+        return;
+      }
+
+      container.innerHTML = users.map(u => `
+        <div style="background:rgba(13,18,29,0.9); border:1px solid ${u.rol === 'super_admin' ? 'var(--neon-gold)' : (u.activo ? 'var(--border-glass)' : 'var(--neon-red)')}; border-radius:var(--radius-sm); padding:0.6rem 0.75rem; display:flex; align-items:center; justify-content:space-between; gap:0.5rem;">
+          <div>
+            <div style="font-size:0.85rem; font-weight:800; color:#fff; display:flex; align-items:center; gap:0.35rem;">
+              ${u.rol === 'super_admin' ? '👑' : '🎧'} ${u.nombre}
+              ${u.rol === 'super_admin' ? '<span style="font-size:0.65rem; background:rgba(255,209,102,0.2); color:var(--neon-gold); padding:1px 6px; border-radius:var(--radius-full);">SUPER ADMIN</span>' : (u.activo ? '<span style="font-size:0.65rem; background:rgba(6,214,160,0.2); color:var(--neon-green); padding:1px 6px; border-radius:var(--radius-full);">ACTIVO</span>' : '<span style="font-size:0.65rem; background:rgba(239,71,111,0.2); color:var(--neon-red); padding:1px 6px; border-radius:var(--radius-full);">DE BAJA</span>')}
+            </div>
+            <div style="font-size:0.75rem; color:var(--text-muted);">
+              Cédula: <strong style="color:var(--neon-cyan);">${u.cedula}</strong>
+            </div>
+          </div>
+          
+          ${u.rol !== 'super_admin' ? `
+            <div style="display:flex; gap:0.35rem;">
+              <button class="btn-glass" style="font-size:0.7rem; padding:0.3rem 0.5rem; ${u.activo ? 'color:var(--neon-gold);' : 'color:var(--neon-green);'}" onclick="window.App.toggleDJStatus('${u.cedula}')">
+                ${u.activo ? 'Dar de Baja' : 'Reactivar'}
+              </button>
+              <button class="btn-glass" style="font-size:0.7rem; padding:0.3rem 0.5rem; color:var(--neon-red);" onclick="window.App.deleteDJ('${u.cedula}')">
+                ✕ Eliminar
+              </button>
+            </div>
+          ` : ''}
+        </div>
+      `).join('');
+    } catch (err) {
+      container.innerHTML = '<div style="color:var(--neon-red); font-size:0.85rem; padding:0.5rem;">Error al cargar la lista.</div>';
+    }
+  }
+
+  async submitCreateDJ() {
+    const nombreInput = document.getElementById('new-dj-nombre');
+    const cedulaInput = document.getElementById('new-dj-cedula');
+    const passInput = document.getElementById('new-dj-password');
+
+    const nombre = nombreInput ? nombreInput.value.trim() : '';
+    const cedula = cedulaInput ? cedulaInput.value.trim() : '';
+    const password = passInput ? passInput.value.trim() : '';
+
+    if (!nombre || !cedula || !password) {
+      this.showToast('Nombre, Cédula y Contraseña son obligatorios', 'error');
+      return;
+    }
+
+    if (password.length < 4) {
+      this.showToast('La contraseña debe tener al menos 4 caracteres', 'error');
+      passInput?.focus();
+      return;
+    }
+
+    try {
+      const res = await fetch('/api/admin/djs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nombre, cedula, password })
+      });
+      const data = await res.json();
+
+      if (res.ok && data.success) {
+        this.showToast(`¡DJ ${data.dj.nombre} registrado y autorizado con éxito! 🎧`, 'success');
+        if (nombreInput) nombreInput.value = '';
+        if (cedulaInput) cedulaInput.value = '';
+        if (passInput) passInput.value = '';
+        await this.loadDJsList();
+      } else {
+        this.showToast(data.error || 'Error al registrar el DJ', 'error');
+      }
+    } catch (err) {
+      this.showToast('Error al conectar con el servidor', 'error');
+    }
+  }
+
+  async toggleDJStatus(cedula) {
+    try {
+      const res = await fetch(`/api/admin/djs/${encodeURIComponent(cedula)}/toggle`, {
+        method: 'PATCH'
+      });
+      const data = await res.json();
+      if (data.success) {
+        this.showToast(data.message, 'info');
+        await this.loadDJsList();
+      } else {
+        this.showToast(data.error || 'Error al actualizar estado', 'error');
+      }
+    } catch (err) {
+      this.showToast('Error de conexión', 'error');
+    }
+  }
+
+  async deleteDJ(cedula) {
+    if (!confirm(`¿Estás seguro de eliminar permanentemente al DJ con cédula ${cedula}?`)) {
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/admin/djs/${encodeURIComponent(cedula)}`, {
+        method: 'DELETE'
+      });
+      const data = await res.json();
+      if (data.success) {
+        this.showToast('DJ eliminado del sistema', 'info');
+        await this.loadDJsList();
+      } else {
+        this.showToast(data.error || 'Error al eliminar', 'error');
+      }
+    } catch (err) {
+      this.showToast('Error de conexión', 'error');
     }
   }
 

@@ -8,7 +8,16 @@ class QueueService {
     this.currentPlaying = null;
     this.nextSinger = null;
     this.activeTab = 'aprobadas'; // 'aprobadas' o 'moderacion'
-    this.isDJUnlocked = localStorage.getItem('karaoke_dj_unlocked') === 'true';
+    
+    // Usuario autenticado por rol (Super Admin / DJ)
+    this.currentUser = null;
+    try {
+      const stored = localStorage.getItem('karaoke_auth_user');
+      if (stored) this.currentUser = JSON.parse(stored);
+    } catch (e) {
+      this.currentUser = null;
+    }
+    this.isDJUnlocked = !!this.currentUser;
     
     this.init();
   }
@@ -305,64 +314,53 @@ class QueueService {
   }
 
   // ============================================================
-  // GESTIÓN DE SEGURIDAD DJ & PIN
+  // GESTIÓN DE SEGURIDAD Y ROLES (SUPER ADMIN & DJ)
   // ============================================================
-  async verifyDJPin(pin) {
-    try {
-      const res = await fetch('/api/dj/auth', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pin })
-      });
-      const data = await res.json();
-      if (data.success) {
-        this.isDJUnlocked = true;
-        localStorage.setItem('karaoke_dj_unlocked', 'true');
-        this.updateDJUI();
-        this.renderQueueUI();
-        return true;
-      }
-      return false;
-    } catch (e) {
-      // Fallback local PIN 1234
-      if (pin === '1234') {
-        this.isDJUnlocked = true;
-        localStorage.setItem('karaoke_dj_unlocked', 'true');
-        this.updateDJUI();
-        this.renderQueueUI();
-        return true;
-      }
-      return false;
+  setAuthUser(user) {
+    this.currentUser = user;
+    this.isDJUnlocked = !!user;
+    if (user) {
+      localStorage.setItem('karaoke_auth_user', JSON.stringify(user));
+    } else {
+      localStorage.removeItem('karaoke_auth_user');
     }
-  }
-
-  lockDJ() {
-    this.isDJUnlocked = false;
-    localStorage.removeItem('karaoke_dj_unlocked');
     this.updateDJUI();
     this.renderQueueUI();
-    window.App.showToast('Modo DJ bloqueado 🔒', 'info');
+  }
+
+  logout() {
+    this.setAuthUser(null);
+    window.App?.showToast('Sesión cerrada 🔒', 'info');
   }
 
   updateDJUI() {
     const pill = document.getElementById('dj-auth-status-pill');
     const text = document.getElementById('dj-auth-status-text');
     const djControls = document.getElementById('dj-remote-toolbar');
+    const btnManageDJs = document.getElementById('btn-admin-manage-djs');
     
     if (pill && text) {
-      if (this.isDJUnlocked) {
+      if (this.currentUser) {
         pill.classList.add('unlocked');
-        text.innerText = '🎧 DJ Activo';
-        pill.title = 'Haz clic para bloquear el modo DJ';
+        if (this.currentUser.rol === 'super_admin') {
+          text.innerText = `👑 Super Admin`;
+        } else {
+          text.innerText = `🎧 DJ: ${this.currentUser.nombre.split(' ')[0]}`;
+        }
+        pill.title = 'Sesión activa. Haz clic para opciones';
       } else {
         pill.classList.remove('unlocked');
-        text.innerText = '🔒 Acceso DJ';
-        pill.title = 'Ingresar PIN de DJ';
+        text.innerText = '🔒 Acceso Restringido';
+        pill.title = 'Iniciar Sesión (Super Admin & DJ)';
       }
     }
 
     if (djControls) {
       djControls.style.display = this.isDJUnlocked ? 'flex' : 'none';
+    }
+
+    if (btnManageDJs) {
+      btnManageDJs.style.display = (this.currentUser && this.currentUser.rol === 'super_admin') ? 'block' : 'none';
     }
   }
 
