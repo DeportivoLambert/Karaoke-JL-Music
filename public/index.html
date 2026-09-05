@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Karaoke Jl Music - Sistema Profesional de Karaoke y Pedidos en Tiempo Real</title>
+  <meta name="description" content="Sistema interactivo de karaoke, catálogo musical de más de 550 canciones, moderación DJ con PIN, aplausómetro en vivo y cola en tiempo real.">
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- Supabase JS Client & QRCode -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+
+  <!-- App Styles -->
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+  <!-- ============================================================
+       NAVBAR
+       ============================================================ -->
+  <nav class="navbar">
+    <div class="brand-container" onclick="window.App.switchView('home')">
+      <div class="brand-logo-icon">🎤</div>
+      <div class="brand-text-wrapper">
+        <span class="brand-title">Karaoke Jl Music</span>
+        <span class="brand-tagline">Live Stage & DJ Realtime</span>
+      </div>
+    </div>
+
+    <ul class="nav-links">
+      <li>
+        <button class="nav-btn active" data-view="home">
+          <span>🏠</span> <span class="nav-text">Portada</span>
+        </button>
+      </li>
+      <li>
+        <button class="nav-btn" data-view="catalog">
+          <span>🎵</span> <span class="nav-text">Catálogo</span>
+        </button>
+      </li>
+      <li>
+        <button class="nav-btn" data-view="queue">
+          <span>📋</span> <span class="nav-text">Cola en Vivo</span>
+          <span class="nav-badge" id="nav-queue-count">0</span>
+        </button>
+      </li>
+      <li>
+        <button class="nav-btn" data-view="stage">
+          <span>📺</span> <span class="nav-text">Escenario</span>
+        </button>
+      </li>
+    </ul>
+
+    <div class="nav-actions">
+      <!-- DJ Status Pill / Login -->
+      <div class="dj-auth-pill" id="dj-auth-status-pill" onclick="window.App.handleDJPillClick()">
+        <span id="dj-lock-icon">🔒</span>
+        <span id="dj-auth-status-text">Acceso DJ</span>
+      </div>
+
+      <div class="status-pill" id="realtime-status-badge" title="Estado de la conexión">
+        <span class="status-dot"></span>
+        <span id="realtime-status-text">Modo Local / Red</span>
+      </div>
+
+      <button class="icon-btn" title="Compartir QR para Móviles" onclick="window.App.openQRModal()">
+        📱
+      </button>
+
+      <button class="icon-btn" title="Configurar Supabase" onclick="window.App.openSettingsModal()">
+        ⚙️
+      </button>
+    </div>
+  </nav>
+
+  <!-- ============================================================
+       VISTA 1: PORTADA / HERO (HOME)
+       ============================================================ -->
+  <main id="home-section" class="view-section active">
+    <div class="hero-wrapper">
+      <div class="hero-glow-orb hero-glow-cyan"></div>
+      <div class="hero-glow-orb hero-glow-magenta"></div>
+
+      <div class="hero-content">
+        <div class="hero-badge">
+          <span>✨</span> Sistema Profesional de Karaoke con DJ Moderador
+        </div>
+
+        <h1 class="hero-title">
+          <span class="glow-text-cyan">Karaoke</span> <span class="glow-text-magenta">Jl Music</span>
+        </h1>
+
+        <p class="hero-subtitle">
+          Elige tu canción favorita, súmate a la cola en tiempo real desde tu móvil, califica a tus amigos con el aplausómetro y sé la estrella del show.
+        </p>
+
+        <!-- Dynamic Visualizer Waves -->
+        <div class="visualizer-container">
+          <div class="v-bar"></div>
+          <div class="v-bar"></div>
+          <div class="v-bar"></div>
+          <div class="v-bar"></div>
+          <div class="v-bar"></div>
+          <div class="v-bar"></div>
+          <div class="v-bar"></div>
+          <div class="v-bar"></div>
+        </div>
+
+        <!-- Quick CTAs -->
+        <div class="hero-cta-group">
+          <button class="btn-neon-primary" onclick="window.App.switchView('catalog')">
+            <span>🎤</span> Pedir una Canción
+          </button>
+          <button class="btn-neon-secondary" onclick="window.App.switchView('queue')">
+            <span>📋</span> Ver Cola en Vivo
+          </button>
+          <button class="btn-glass" onclick="window.App.switchView('stage')">
+            <span>📺</span> Pantalla Escenario / TV
+          </button>
+          <button class="btn-glass" onclick="window.App.openQRModal()">
+            <span>📱</span> QR para Celulares
+          </button>
+        </div>
+
+        <!-- Home Quick Search -->
+        <div class="search-container" style="max-width: 750px; margin: 0 auto;">
+          <div class="search-input-wrapper">
+            <span class="search-icon">🔍</span>
+            <input 
+              type="text" 
+              class="search-input" 
+              placeholder="Buscar por número (#150), canción o artista..."
+              oninput="window.CatalogService.search(this.value)"
+              onfocus="window.App.switchView('catalog')"
+            />
+          </div>
+          <div class="genre-filter-scroll" id="hero-genre-filters" style="justify-content: center; margin-top: 0.75rem;">
+            <!-- Renderizado dinámicamente -->
+          </div>
+        </div>
+
+        <!-- Quick Live Stats -->
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-icon cyan">🎵</div>
+            <div class="stat-info">
+              <span class="stat-value" id="stat-total-songs">557+</span>
+              <span class="stat-label">Canciones Listas</span>
+            </div>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-icon magenta">👑</div>
+            <div class="stat-info">
+              <span class="stat-value" id="stat-current-singer" style="font-size:1.15rem;">Libre</span>
+              <span class="stat-label">En Tarima Ahora</span>
+            </div>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-icon gold">⏳</div>
+            <div class="stat-info">
+              <span class="stat-value" id="stat-waiting-singers">0</span>
+              <span class="stat-label">En Lista de Espera</span>
+            </div>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-icon green">🔜</div>
+            <div class="stat-info">
+              <span class="stat-value" id="stat-next-singer" style="font-size:1.15rem;">Nadie en cola</span>
+              <span class="stat-label">Siguiente Turno</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- ============================================================
+       VISTA 2: CATÁLOGO MUSICAL (CATALOG)
+       ============================================================ -->
+  <section id="catalog-section" class="view-section">
+    <div class="section-header">
+      <div class="section-title-wrap">
+        <h2 class="section-title">Catálogo de Canciones</h2>
+        <span class="section-count-badge" id="catalog-results-count">557 canciones</span>
+      </div>
+    </div>
+
+    <!-- Search & Genre Filters -->
+    <div class="search-container">
+      <div class="search-input-wrapper">
+        <span class="search-icon">🔍</span>
+        <input 
+          type="text" 
+          id="catalog-search-input"
+          class="search-input" 
+          placeholder="Busca tu tema favorito (ej: Juan Gabriel, Salsa, 150, Tusa)..."
+          oninput="window.CatalogService.search(this.value)"
+        />
+        <button class="search-clear-btn" id="search-clear-btn" onclick="document.getElementById('catalog-search-input').value=''; window.CatalogService.search('');">✕</button>
+      </div>
+
+      <div class="genre-filter-scroll" id="genre-filters-scroll">
+        <!-- Renderizado dinámicamente -->
+      </div>
+    </div>
+
+    <!-- Song Grid -->
+    <div class="song-grid" id="song-grid-container">
+      <!-- Tarjetas de canciones renderizadas con JS -->
+    </div>
+
+    <!-- Pagination -->
+    <div class="pagination-wrap" id="catalog-pagination"></div>
+  </section>
+
+  <!-- ============================================================
+       VISTA 3: COLA DE PEDIDOS EN VIVO Y MODERACIÓN DJ (QUEUE)
+       ============================================================ -->
+  <section id="queue-section" class="view-section">
+    <div class="section-header">
+      <div class="section-title-wrap">
+        <h2 class="section-title">Cola de Pedidos en Tiempo Real</h2>
+        <span class="section-count-badge">Sincronización en Vivo</span>
+      </div>
+      <button class="btn-neon-primary" onclick="window.App.switchView('catalog')">
+        <span>+</span> Pedir Otra Canción
+      </button>
+    </div>
+
+    <div class="queue-container">
+      <!-- Main Queue List -->
+      <div class="queue-list-card">
+        <!-- DJ Tabs: Aprobadas vs Moderación -->
+        <div class="dj-tabs-wrap">
+          <button class="dj-tab-btn active" id="tab-btn-aprobadas" onclick="window.QueueService.setTab('aprobadas')">
+            <span>📋</span> Cola Aprobada
+          </button>
+          <button class="dj-tab-btn" id="tab-btn-moderacion" onclick="window.QueueService.setTab('moderacion')">
+            <span>🛡️</span> Por Aprobar (Moderación)
+            <span class="dj-pending-badge" id="dj-moderation-badge" style="display:none;">0</span>
+          </button>
+        </div>
+
+        <div class="queue-items" id="queue-items-container">
+          <!-- Renderizado con JS -->
+        </div>
+      </div>
+
+      <!-- DJ Sidebar -->
+      <aside class="dj-panel-card">
+        <div class="dj-panel-title">
+          <span>🎧</span> Control DJ / Anfitrión
+        </div>
+
+        <div class="current-singer-highlight">
+          <div class="csh-label">En Tarima Actualmente</div>
+          <div class="csh-name" id="csh-current-name">Escenario Disponible</div>
+          <div class="csh-song" id="csh-current-song">¡Pide tu canción para subir!</div>
+        </div>
+
+        <!-- DJ Remote Control Toolbar -->
+        <div id="dj-remote-toolbar" style="display:none; background:rgba(7,9,14,0.6); padding:0.85rem; border-radius:var(--radius-md); border:1px solid var(--border-glass); margin-bottom:1rem;">
+          <div style="font-size:0.75rem; font-weight:800; color:var(--neon-gold); text-transform:uppercase; margin-bottom:0.6rem;">
+            ⚡ Control Remoto de Escenario:
+          </div>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.4rem; margin-bottom:0.6rem;">
+            <button class="btn-glass" style="font-size:0.8rem; padding:0.45rem;" onclick="window.SupabaseService.sendStageControl('play')">▶ Reanudar</button>
+            <button class="btn-glass" style="font-size:0.8rem; padding:0.45rem;" onclick="window.SupabaseService.sendStageControl('pause')">⏸ Pausar</button>
+            <button class="btn-glass" style="font-size:0.8rem; padding:0.45rem;" onclick="window.SupabaseService.sendStageControl('skip')">⏭ Siguiente</button>
+            <button class="btn-glass" style="font-size:0.8rem; padding:0.45rem;" onclick="window.SupabaseService.sendStageControl('mute')">🔇 Silenciar</button>
+          </div>
+          <button class="btn-neon-primary" style="width:100%; font-size:0.8rem; padding:0.5rem;" onclick="window.SupabaseService.sendReaction('👏', 'DJ')">
+            👏 Enviar Aplausos al Escenario
+          </button>
+        </div>
+
+        <button class="btn-neon-secondary" style="width:100%;" onclick="window.App.switchView('stage')">
+          <span>📺</span> Abrir Pantalla Escenario
+        </button>
+
+        <button class="btn-glass" style="width:100%;" onclick="window.App.openQRModal()">
+          <span>📱</span> Ver Código QR Móvil
+        </button>
+      </aside>
+    </div>
+  </section>
+
+  <!-- ============================================================
+       VISTA 4: ESCENARIO / MODO TV (STAGE PLAYER & HUD)
+       ============================================================ -->
+  <section id="stage-section" class="view-section">
+    <div class="section-header">
+      <div class="section-title-wrap">
+        <h2 class="section-title">Escenario / Modo Pantalla Gigante</h2>
+        <span class="section-count-badge">TV / Proyector en Vivo</span>
+      </div>
+      <button class="btn-glass" onclick="window.StageService.toggleFullScreen()">
+        ⛶ Pantalla Completa
+      </button>
+    </div>
+
+    <div class="stage-container">
+      <div class="stage-video-frame" id="stage-video-frame">
+        <!-- Standby Screen (Música Ambiental / Espera cuando no hay canción) -->
+        <div class="stage-standby-screen" id="stage-standby-screen">
+          <div class="standby-logo-glow">🎤</div>
+          <div class="standby-title">KARAOKE JL MUSIC</div>
+          <div class="standby-sub">Escenario listo. Pide tu canción favorita desde el celular para comenzar el show.</div>
+          
+          <div class="standby-equalizer">
+            <div class="eq-bar"></div>
+            <div class="eq-bar"></div>
+            <div class="eq-bar"></div>
+            <div class="eq-bar"></div>
+            <div class="eq-bar"></div>
+            <div class="eq-bar"></div>
+            <div class="eq-bar"></div>
+            <div class="eq-bar"></div>
+          </div>
+
+          <button class="btn-neon-primary" onclick="window.App.openQRModal()" style="font-size:1rem; padding:0.75rem 1.5rem;">
+            📱 Escanear QR para Cantar
+          </button>
+        </div>
+
+        <!-- Floating Emojis Overlay Container -->
+        <div class="floating-emojis-container" id="floating-emojis-container"></div>
+
+        <!-- Aplausómetro / Hype Meter Widget -->
+        <div class="stage-hype-meter" id="stage-hype-meter">
+          <span style="font-size:1.2rem;">🔥</span>
+          <div>
+            <div class="hype-label">Aplausómetro</div>
+            <div class="hype-bar-track">
+              <div class="hype-bar-fill" id="stage-hype-fill"></div>
+            </div>
+          </div>
+          <span class="hype-score" id="stage-hype-score">0%</span>
+        </div>
+
+        <!-- Top Overlay Banner -->
+        <div class="stage-overlay-top">
+          <div class="stage-singer-badge">
+            <span style="font-size:1.3rem;">🎤</span>
+            <div>
+              <div class="stage-singer-title">En Tarima</div>
+              <div class="stage-singer-val" id="stage-current-singer">Escenario Disponible</div>
+            </div>
+          </div>
+
+          <div style="background:rgba(7,9,14,0.85); backdrop-filter:blur(8px); padding:0.5rem 1rem; border-radius:var(--radius-full); border:1px solid var(--border-glass); font-size:0.85rem; font-weight:700; color:var(--neon-cyan);" id="stage-current-song-info">
+            Karaoke Jl Music
+          </div>
+        </div>
+
+        <!-- Video Player -->
+        <video id="stage-video-player" class="stage-video" controls autoplay playsinline poster="assets/stage_poster.jpg"></video>
+
+        <!-- "Próximo a Cantar" HUD Alert (Últimos 15 segundos) -->
+        <div class="stage-next-singer-hud" id="stage-next-singer-hud">
+          <span class="hud-icon">🔔</span>
+          <div>
+            <div class="hud-title">¡Prepárate con el Micrófono! Próximo en subir:</div>
+            <div class="hud-singer" id="hud-next-singer">Nombre del Cantante</div>
+            <div class="hud-song" id="hud-next-song">🎵 Título de la Canción</div>
+          </div>
+        </div>
+
+        <!-- 45-Second Reaction Time & Transition Countdown Overlay -->
+        <div class="stage-countdown-overlay" id="stage-countdown-overlay">
+          <div class="stage-reaction-banner">
+            <div class="banner-badge">✨ INTERMEDIO EN VIVO ✨</div>
+            <h2 class="reaction-title">¡Tiempo de Reaccionar!</h2>
+            <p class="reaction-subtitle">Envía tus aplausos y estrellas desde tu celular 📱✨</p>
+          </div>
+
+          <div class="countdown-timer-wrap">
+            <div class="countdown-number" id="countdown-number">45</div>
+            <span class="countdown-unit">segundos para el siguiente tema</span>
+          </div>
+
+          <div class="countdown-next-singer-box">
+            <span class="next-singer-badge">🎤 Siguiente en Escenario:</span>
+            <div class="countdown-text" id="countdown-next-text">Cargando siguiente cantante...</div>
+          </div>
+        </div>
+
+        <!-- Bottom Ticker -->
+        <div class="stage-overlay-bottom">
+          <div class="stage-ticker" id="stage-next-singer-text">
+            A continuación: <span class="next-name">Nadie en espera</span>
+          </div>
+
+          <div class="stage-controls-bar">
+            <button class="btn-queue-action play" onclick="document.getElementById('stage-video-player').play()">▶ Play</button>
+            <button class="btn-queue-action" onclick="document.getElementById('stage-video-player').pause()">⏸ Pausa</button>
+            <button class="btn-queue-action" onclick="window.StageService.toggleFullScreen()">⛶ Fullscreen</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- DJ Sound Effects Pad -->
+      <div class="queue-list-card">
+        <div class="dj-panel-title">
+          <span>🔊</span> Consola de Efectos de Sonido DJ (Puntuaciones & Aplausos)
+        </div>
+        <p style="font-size:0.85rem; color:var(--text-muted); margin-top:0.25rem;">
+          Presiona los botones durante o al final de la interpretación para animar el show:
+        </p>
+
+        <div class="sound-fx-grid" id="sound-fx-grid">
+          <!-- Renderizado dinámicamente -->
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================
+       BARRA FLOTANTE DE REACCIONES Y APLAUSÓMETRO (TODOS LOS DISPOSITIVOS)
+       ============================================================ -->
+  <div class="floating-reactions-dock" id="floating-reactions-dock">
+    <span class="dock-title">Reaccionar:</span>
+    <button class="reaction-btn" title="Fuego" onclick="window.App.sendReaction('🔥')">🔥</button>
+    <button class="reaction-btn" title="Aplausos" onclick="window.App.sendReaction('👏')">👏</button>
+    <button class="reaction-btn" title="Corazón" onclick="window.App.sendReaction('❤️')">❤️</button>
+    <button class="reaction-btn" title="Estrella" onclick="window.App.sendReaction('⭐')">⭐</button>
+    <button class="reaction-btn" title="Fiesta" onclick="window.App.sendReaction('🥳')">🥳</button>
+    <button class="reaction-btn" title="100 Puntos" onclick="window.App.sendReaction('💯')">💯</button>
+  </div>
+
+  <!-- ============================================================
+       MODAL: PEDIR CANCIÓN (ORDER MODAL)
+       ============================================================ -->
+  <div class="modal-backdrop" id="order-modal-backdrop">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <div class="modal-title">
+          <span>🎤</span> Pedir Canción para Cantar
+        </div>
+        <button class="modal-close-btn" onclick="window.CatalogService.closeOrderModal()">✕</button>
+      </div>
+
+      <div class="modal-body">
+        <div style="background:rgba(7,9,14,0.7); border:1px solid var(--border-glass); border-radius:var(--radius-md); padding:1rem; margin-bottom:1.25rem; display:flex; gap:1rem; align-items:center;">
+          <div style="font-size:2rem; background:rgba(0,240,255,0.1); width:50px; height:50px; border-radius:var(--radius-sm); display:flex; align-items:center; justify-content:center; color:var(--neon-cyan);">
+            🎵
+          </div>
+          <div>
+            <span style="font-size:0.75rem; font-weight:800; color:var(--neon-cyan);" id="modal-song-num">#01</span>
+            <div style="font-size:1.15rem; font-weight:800; color:#fff;" id="modal-song-title">Título</div>
+            <div style="font-size:0.85rem; color:var(--neon-gold);" id="modal-song-artist">Artista</div>
+            <span class="song-genre-tag" id="modal-song-genre" style="display:inline-block; margin-top:0.25rem;">Género</span>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">¿Cómo te llamas? (Nombre del Cantante)</label>
+          <input 
+            type="text" 
+            id="modal-singer-name" 
+            class="form-input" 
+            placeholder="Ej: Carlos, María, El Dúo Dinámico..."
+            maxlength="40"
+          />
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn-glass" onclick="window.CatalogService.closeOrderModal()">Cancelar</button>
+        <button class="btn-neon-primary" id="modal-submit-order-btn" onclick="window.CatalogService.submitOrder()">
+          Confirmar Pedido 🎤
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       MODAL: PIN DE DJ / MODERADOR
+       ============================================================ -->
+  <div class="modal-backdrop" id="dj-pin-modal-backdrop">
+    <div class="modal-dialog" style="max-width:400px; text-align:center;">
+      <div class="modal-header">
+        <div class="modal-title">
+          <span>🎧</span> Acceso DJ / Moderador
+        </div>
+        <button class="modal-close-btn" onclick="window.App.closeDJModal()">✕</button>
+      </div>
+
+      <div class="modal-body">
+        <p style="color:var(--text-muted); font-size:0.9rem; margin-bottom:1.25rem;">
+          Ingresa el PIN de 4 dígitos para desbloquear las herramientas de moderación, reordenar la cola y controlar el escenario:
+        </p>
+
+        <div class="form-group">
+          <input 
+            type="password" 
+            id="dj-pin-input" 
+            class="form-input" 
+            placeholder="PIN (por defecto: 1234)"
+            maxlength="10"
+            style="text-align:center; font-size:1.5rem; letter-spacing:6px; font-weight:800;"
+            onkeydown="if(event.key==='Enter') window.App.submitDJPin()"
+          />
+        </div>
+      </div>
+
+      <div class="modal-footer" style="justify-content:center;">
+        <button class="btn-glass" onclick="window.App.closeDJModal()">Cancelar</button>
+        <button class="btn-neon-primary" onclick="window.App.submitDJPin()">
+          Desbloquear DJ 🔓
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       MODAL: CÓDIGO QR PARA CELULARES
+       ============================================================ -->
+  <div class="modal-backdrop" id="qr-modal-backdrop">
+    <div class="modal-dialog" style="text-align:center;">
+      <div class="modal-header">
+        <div class="modal-title">
+          <span>📱</span> Pide Canciones desde tu Celular
+        </div>
+        <button class="modal-close-btn" onclick="window.App.closeQRModal()">✕</button>
+      </div>
+
+      <div class="modal-body">
+        <p style="color:var(--text-muted); font-size:0.95rem; margin-bottom:1rem;">
+          Apunta la cámara de tu teléfono al código QR para abrir el catálogo, pedir tus temas y reaccionar con emojis en vivo:
+        </p>
+
+        <div class="qr-box" id="qrcode-container"></div>
+
+        <div style="margin-top:1rem; font-size:0.85rem; color:var(--neon-cyan);">
+          O ingresa desde tu navegador a:
+        </div>
+        <div style="font-family:monospace; background:rgba(7,9,14,0.8); padding:0.5rem 1rem; border-radius:var(--radius-sm); border:1px solid var(--border-glass); margin-top:0.4rem; color:#fff; font-weight:700;" id="mobile-url-display">
+          http://localhost:3000
+        </div>
+      </div>
+
+      <div class="modal-footer" style="justify-content:center;">
+        <button class="btn-neon-secondary" onclick="window.App.closeQRModal()">Listo</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       MODAL: CONFIGURACIÓN SUPABASE
+       ============================================================ -->
+  <div class="modal-backdrop" id="settings-modal-backdrop">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <div class="modal-title">
+          <span>⚡</span> Configuración Supabase Realtime
+        </div>
+        <button class="modal-close-btn" onclick="window.App.closeSettingsModal()">✕</button>
+      </div>
+
+      <div class="modal-body">
+        <p style="color:var(--text-muted); font-size:0.85rem; margin-bottom:1.25rem;">
+          Conecta tu proyecto Supabase para activar la sincronización en tiempo real en múltiples dispositivos y pantallas simultáneas:
+        </p>
+
+        <div class="form-group">
+          <label class="form-label">Supabase Project URL</label>
+          <input 
+            type="text" 
+            id="settings-supabase-url" 
+            class="form-input" 
+            placeholder="https://xyzcompany.supabase.co"
+          />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Supabase Anon Public Key</label>
+          <input 
+            type="password" 
+            id="settings-supabase-key" 
+            class="form-input" 
+            placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+          />
+        </div>
+
+        <div style="margin-top:1.5rem; padding-top:1rem; border-top:1px solid var(--border-glass);">
+          <button 
+            class="btn-neon-secondary" 
+            id="btn-sync-catalog" 
+            style="width:100%; font-size:0.9rem;"
+            onclick="window.App.syncCatalogToSupabase()">
+            Sincronizar Catálogo a Supabase (557 Canciones)
+          </button>
+          <p style="font-size:0.75rem; color:var(--text-dim); margin-top:0.5rem; text-align:center;">
+            Nota: Asegúrate de haber ejecutado <code>supabase_schema.sql</code> previamente en Supabase.
+          </p>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn-glass" onclick="window.App.closeSettingsModal()">Cerrar</button>
+        <button class="btn-neon-primary" onclick="window.App.saveSupabaseSettings()">
+          Guardar y Conectar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Container -->
+  <div class="toast-container" id="toast-container"></div>
+
+  <!-- Scripts -->
+  <script src="js/data/canciones_data.js"></script>
+  <script src="js/supabaseClient.js"></script>
+  <script src="js/catalog.js"></script>
+  <script src="js/stage.js"></script>
+  <script src="js/queue.js"></script>
+  <script src="js/app.js"></script>
+
+</body>
+</html>
