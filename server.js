@@ -34,6 +34,14 @@ app.get('/api/server-info', (req, res) => {
   });
 });
 
+// Ruta para obtener configuración pública de Supabase
+app.get('/api/config', (req, res) => {
+  res.json({
+    supabaseUrl: process.env.VITE_SUPABASE_URL || 'https://hmutnmerrrvbkaqccyfg.supabase.co',
+    supabaseKey: process.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhtdXRubWVycnJ2YmthcWNjeWZnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg1ODU4MDcsImV4cCI6MjEwNDE2MTgwN30.ofX28HFGnipchRTw7T0kVvx829iiJSvr0h3y8ve2xm8'
+  });
+});
+
 // Ruta para obtener catálogo de canciones
 app.get('/api/canciones', (req, res) => {
   const jsonPath = path.join(__dirname, 'data', 'canciones.json');

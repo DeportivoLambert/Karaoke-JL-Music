@@ -14,9 +14,11 @@ class SupabaseService {
     this.onReactionCallbacks = [];
     this.onStageControlCallbacks = [];
     
-    // Cargar credenciales guardadas en LocalStorage
-    this.supabaseUrl = localStorage.getItem('karaoke_supabase_url') || '';
-    this.supabaseKey = localStorage.getItem('karaoke_supabase_key') || '';
+    // Cargar credenciales guardadas en LocalStorage o valores por defecto
+    const DEFAULT_SUPABASE_URL = 'https://hmutnmerrrvbkaqccyfg.supabase.co';
+    const DEFAULT_SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhtdXRubWVycnJ2YmthcWNjeWZnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg1ODU4MDcsImV4cCI6MjEwNDE2MTgwN30.ofX28HFGnipchRTw7T0kVvx829iiJSvr0h3y8ve2xm8';
+    this.supabaseUrl = localStorage.getItem('karaoke_supabase_url') || DEFAULT_SUPABASE_URL;
+    this.supabaseKey = localStorage.getItem('karaoke_supabase_key') || DEFAULT_SUPABASE_KEY;
     
     this.init();
     this.initSSE();

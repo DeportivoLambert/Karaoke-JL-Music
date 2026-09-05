@@ -194,8 +194,8 @@ class AppController {
     const urlInput = document.getElementById('settings-supabase-url');
     const keyInput = document.getElementById('settings-supabase-key');
     
-    if (urlInput) urlInput.value = localStorage.getItem('karaoke_supabase_url') || '';
-    if (keyInput) keyInput.value = localStorage.getItem('karaoke_supabase_key') || '';
+    if (urlInput) urlInput.value = localStorage.getItem('karaoke_supabase_url') || window.SupabaseService?.supabaseUrl || 'https://hmutnmerrrvbkaqccyfg.supabase.co';
+    if (keyInput) keyInput.value = localStorage.getItem('karaoke_supabase_key') || window.SupabaseService?.supabaseKey || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhtdXRubWVycnJ2YmthcWNjeWZnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg1ODU4MDcsImV4cCI6MjEwNDE2MTgwN30.ofX28HFGnipchRTw7T0kVvx829iiJSvr0h3y8ve2xm8';
 
     document.getElementById('settings-modal-backdrop')?.classList.add('active');
   }
